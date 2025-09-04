@@ -1,11 +1,19 @@
 # ⛸️ Feedback Loop - Figure Skating Jump Analyzer
 
-A modern web application that uses AI-powered pose detection to analyze figure skating jumps, providing biomechanical insights and performance feedback for skaters and coaches.
+<div align="center">
+
+### 🌟 [**Try the Live App →**](https://figure-skating.github.io/feedback-loop/)
+
+[![App Screenshot](./public/app-screenshot.png)](https://figure-skating.github.io/feedback-loop/)
 
 ![Modern Web Stack](https://img.shields.io/badge/React-18-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![MediaPipe](https://img.shields.io/badge/MediaPipe-AI_Pose_Detection-green?logo=google)
 ![PWA Ready](https://img.shields.io/badge/PWA-Mobile_Optimized-purple)
+
+</div>
+
+A modern web application that uses AI-powered pose detection to analyze figure skating jumps, providing biomechanical insights and performance feedback for skaters and coaches.
 
 ## ✨ Features
 
