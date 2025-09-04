@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import AppContainer from './components/Layout/AppContainer'
 import StatusBar from './components/Layout/StatusBar'
+import OfflineIndicator from './components/Layout/OfflineIndicator'
 import VideoContainer from './components/Video/VideoContainer'
 import DisplayModeToggle from './components/Video/DisplayModeToggle'
 import FrameMarkingWizard from './components/Analysis/FrameMarkingWizard'
@@ -274,6 +275,9 @@ function App() {
         
         {/* Status Bar */}
         <StatusBar />
+        
+        {/* Offline Indicator */}
+        <OfflineIndicator />
 
         {/* Video Section - Responsive height for better use of space */}
         <div className="flex-none h-[340px] ipad:h-[500px] desktop:h-[480px] p-3 ipad:p-4 desktop:p-5 flex gap-2 ipad:gap-3">
