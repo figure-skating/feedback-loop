@@ -15,7 +15,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "apple-touch-icon.png", "Logo1.png", "Logo2.png"],
+      base: "/feedback-loop/",
+      includeAssets: ["favicon.ico", "apple-touch-icon.png", "Logo1.png", "Logo2.png", "android-chrome-192x192.png", "android-chrome-512x512.png"],
       manifest: {
         name: "Feedback Loop - Figure Skating Jump Analyzer",
         short_name: "Feedback Loop",
@@ -29,14 +30,16 @@ export default defineConfig({
         categories: ["sports", "education", "productivity"],
         icons: [
           {
-            src: "android-chrome-192x192.png",
+            src: "/feedback-loop/android-chrome-192x192.png",
             sizes: "192x192",
-            type: "image/png"
+            type: "image/png",
+            purpose: "any maskable"
           },
           {
-            src: "android-chrome-512x512.png",
+            src: "/feedback-loop/android-chrome-512x512.png",
             sizes: "512x512",
-            type: "image/png"
+            type: "image/png",
+            purpose: "any maskable"
           }
         ]
       },
