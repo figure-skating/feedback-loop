@@ -46,11 +46,12 @@ export default function SampleVideoSelector({ isOpen, onClose, onVideoSelect }: 
   const loadSampleData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const response = await fetch('/sample-videos/sample-data.json');
+      const basePath = import.meta.env.BASE_URL;
+      const response = await fetch(`${basePath}sample-videos/sample-data.json`);
       if (!response.ok) throw new Error('Failed to load sample data');
-      
+
       const data = await response.json();
       setSampleVideos(data.videos);
     } catch (err) {
@@ -64,14 +65,15 @@ export default function SampleVideoSelector({ isOpen, onClose, onVideoSelect }: 
   const handleVideoSelect = async (video: SampleVideo) => {
     try {
       // Create a VideoFile object from the sample video
+      const basePath = import.meta.env.BASE_URL;
       const videoFile: VideoFile = {
         file: null, // Sample videos don't have original file
-        url: `/sample-videos/${video.filename}`,
+        url: `${basePath}sample-videos/${video.filename}`,
         name: video.filename,
         size: 0, // Size will be determined when loaded
         duration: 0 // Duration will be determined when loaded
       };
-      
+
       onVideoSelect(videoFile, video);
       onClose();
     } catch (err) {
