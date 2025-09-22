@@ -61,12 +61,12 @@ class StateStorageService {
         };
         
         request.onerror = () => {
-          console.error('Failed to save state:', request.error);
+          // Failed to save state
           reject(request.error);
         };
       });
     } catch (error) {
-      console.error('Failed to save state to IndexedDB:', error);
+      // Failed to save state to IndexedDB
       throw error;
     }
   }
@@ -90,12 +90,12 @@ class StateStorageService {
         };
         
         request.onerror = () => {
-          console.error('Failed to load state:', request.error);
+          // Failed to load state
           reject(request.error);
         };
       });
     } catch (error) {
-      console.error('Failed to load state from IndexedDB:', error);
+      // Failed to load state from IndexedDB
       return null;
     }
   }
@@ -114,12 +114,12 @@ class StateStorageService {
         };
         
         request.onerror = () => {
-          console.error('Failed to clear state:', request.error);
+          // Failed to clear state
           reject(request.error);
         };
       });
     } catch (error) {
-      console.error('Failed to clear state from IndexedDB:', error);
+      // Failed to clear state from IndexedDB
       throw error;
     }
   }

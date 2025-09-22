@@ -104,7 +104,7 @@ class VideoExportService {
         };
 
         this.mediaRecorder.onerror = (error) => {
-          console.error("❌ MediaRecorder error:", error);
+          // MediaRecorder error
           reject(error);
         };
 
@@ -127,7 +127,7 @@ class VideoExportService {
           .catch(reject);
       });
     } catch (error) {
-      console.error("❌ Video export failed:", error);
+      // Video export failed
       return null;
     }
   }

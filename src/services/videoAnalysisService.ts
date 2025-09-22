@@ -10,9 +10,21 @@ export class VideoAnalysisService {
   async analyzeVideo(
     videoElement: HTMLVideoElement,
     type: 'reference' | 'user',
-    fps: number = 30 // Reduced from 60 for better performance with natural playback
+    fps: number = 30 // Match video frame rate to capture every frame
   ): Promise<void> {
     const store = useAnalysisStore.getState();
+
+    // Wait for video to be ready
+    if (videoElement.readyState < 2) {
+      await new Promise<void>((resolve) => {
+        const onCanPlay = () => {
+          videoElement.removeEventListener('canplay', onCanPlay);
+          resolve();
+        };
+        videoElement.addEventListener('canplay', onCanPlay);
+      });
+    }
+
     const duration = videoElement.duration;
 
     try {
@@ -24,37 +36,47 @@ export class VideoAnalysisService {
         await poseDetector.initialize();
       }
       
-      // Use natural video playback with MediaPipe tracking
-      await this.analyzeWithNaturalPlayback(videoElement, type, fps, duration);
+      // Use slow natural playback for better detection with temporal consistency
+      await this.analyzeWithSlowPlayback(videoElement, type, fps, duration);
 
       // Analysis completed successfully
 
     } catch (error) {
-      console.error(`❌ ${type} video analysis failed:`, error);
+      // Video analysis failed
       throw error;
     }
   }
 
   /**
-   * Analyze video using natural playback for optimal MediaPipe tracking
+   * Analyze video using natural playback with slower speed for better MediaPipe tracking
+   * Maintains temporal consistency for improved pose detection in fast movements
    */
-  private async analyzeWithNaturalPlayback(
+  private async analyzeWithSlowPlayback(
     videoElement: HTMLVideoElement,
     type: 'reference' | 'user',
     fps: number,
-    _duration: number
+    duration: number
   ): Promise<void> {
     const store = useAnalysisStore.getState();
-    const frameInterval = 1000 / fps; // ms between frames
+    const totalFrames = Math.floor(duration * fps);
+    const frameInterval = 1000 / fps; // ms between frames at normal speed
+
+    // Slower playback for better detection
+    // 0.25 = 25% speed (very slow, best detection)
+    // 0.5 = 50% speed (balanced)
+    // 1.0 = normal speed (fastest, may miss poses)
+    const PLAYBACK_RATE = 0.25; // Using 25% speed for maximum accuracy
+
     let frameIndex = 0;
-    let lastProcessTime = 0;
+
+    console.log(`🎬 Starting slow playback analysis: ${totalFrames} frames at ${fps}fps (${PLAYBACK_RATE}x speed)`);
 
     return new Promise((resolve, reject) => {
       // Reset video to start
       videoElement.currentTime = 0;
-      videoElement.playbackRate = 1.0; // Normal speed
-      
-      // Set up frame processing during playback
+      videoElement.playbackRate = PLAYBACK_RATE; // Set slower playback
+
+      // Process frames during natural playback
       const processFrame = async () => {
         if (this.abortController?.signal.aborted) {
           cleanup();
@@ -63,33 +85,38 @@ export class VideoAnalysisService {
         }
 
         const currentTime = videoElement.currentTime * 1000; // Convert to ms
-        
-        // Process frame if enough time has passed (based on target fps)
-        if (currentTime - lastProcessTime >= frameInterval) {
+
+        // Capture frame based on expected timing (accounting for playback rate)
+        if (currentTime >= (frameIndex * frameInterval)) {
           try {
+            // Process with MediaPipe - no force needed, natural flow maintains context
             const results = await poseDetector.detectPose(videoElement);
             const landmarks = results?.landmarks[0] || null;
             const worldLandmarks = results?.worldLandmarks?.[0] || null;
-            
+
             // Store frame data
             store.updateFrameAnalysisWithTimestamp(
-              type, 
-              frameIndex, 
-              landmarks, 
+              type,
+              frameIndex,
+              landmarks,
               videoElement.currentTime,
               worldLandmarks
             );
-            
+
             frameIndex++;
-            lastProcessTime = currentTime;
-            
+
+            // Progress update
+            if (frameIndex % 10 === 0 || frameIndex === totalFrames) {
+              const progress = (frameIndex / totalFrames) * 100;
+              console.log(`⏳ ${type}: Frame ${frameIndex}/${totalFrames} (${progress.toFixed(1)}%) - Time: ${(currentTime/1000).toFixed(2)}s`);
+            }
+
           } catch (error) {
-            console.warn(`⚠️ Frame ${frameIndex}: Detection failed`, error);
-            // Store frame with null data
+            // Frame detection failed
             store.updateFrameAnalysisWithTimestamp(
-              type, 
-              frameIndex, 
-              null, 
+              type,
+              frameIndex,
+              null,
               videoElement.currentTime,
               null
             );
@@ -97,64 +124,59 @@ export class VideoAnalysisService {
           }
         }
 
-        // Continue processing if video is still playing
-        if (!videoElement.ended && !videoElement.paused) {
+        // Continue if video is still playing and we haven't captured all frames
+        if (!videoElement.ended && !videoElement.paused && frameIndex < totalFrames) {
           requestAnimationFrame(processFrame);
+        } else if (frameIndex >= totalFrames) {
+          cleanup();
+          store.completeAnalysis(type);
+          console.log(`✅ Completed ${type} video analysis: ${frameIndex} frames processed`);
+          resolve();
         }
       };
 
       // Event handlers
-      const onLoadedData = async () => {
-        try {
-          // Start playback for natural frame progression
-          const playPromise = videoElement.play();
-          await playPromise; // Wait for play to succeed
-          requestAnimationFrame(processFrame);
-        } catch (error) {
-          console.error(`❌ ${type} video play failed:`, error);
-          reject(new Error(`Failed to start ${type} video playback: ${error instanceof Error ? error.message : String(error)}`));
-        }
+      const onPlaying = () => {
+        requestAnimationFrame(processFrame);
       };
 
       const onEnded = () => {
         cleanup();
-        
-        // Mark analysis as complete
         store.completeAnalysis(type);
+        console.log(`✅ Video ended - ${type} analysis: ${frameIndex}/${totalFrames} frames processed`);
         resolve();
       };
 
-      const onError = (error: Event) => {
-        console.error('❌ Video playback error:', error);
+      const onError = (_error: Event) => {
         cleanup();
         reject(new Error('Video playback failed during analysis'));
       };
 
       const cleanup = () => {
-        videoElement.removeEventListener('loadeddata', onLoadedData);
+        videoElement.removeEventListener('playing', onPlaying);
         videoElement.removeEventListener('ended', onEnded);
         videoElement.removeEventListener('error', onError);
         videoElement.pause();
+        videoElement.playbackRate = 1.0; // Reset to normal speed
       };
 
       // Set up event listeners
-      videoElement.addEventListener('loadeddata', onLoadedData);
+      videoElement.addEventListener('playing', onPlaying);
       videoElement.addEventListener('ended', onEnded);
       videoElement.addEventListener('error', onError);
-      
-      // Give video a moment to stabilize after currentTime reset, then check readyState
-      setTimeout(() => {
-        if (videoElement.readyState >= 2) { // HAVE_CURRENT_DATA
-          onLoadedData();
-        }
-      }, 100); // 100ms delay to let video stabilize
+
+      // Start playback
+      videoElement.play().catch((error) => {
+        cleanup();
+        reject(new Error(`Failed to start video playback: ${error.message}`));
+      });
     });
   }
 
   async analyzeBothVideos(
     referenceVideo: HTMLVideoElement,
     userVideo: HTMLVideoElement,
-    fps: number = 30
+    fps: number = 30 // Match typical video frame rate
   ): Promise<void> {
     if (this.isAnalyzing) {
       throw new Error('Analysis already in progress');
@@ -188,28 +210,55 @@ export class VideoAnalysisService {
       const state = useAnalysisStore.getState();
       const referenceAnalysis = state.referenceAnalysis;
       const userAnalysis = state.userAnalysis;
+      const manualMarkers = state.manualMarkers; // Get manual markers from store
       
-      if (referenceAnalysis) {
-        const referenceMetrics = jumpMetricsService.computeJumpMetrics(referenceAnalysis);
-        store.setReferenceMetrics(referenceMetrics);
-        
+      if (referenceAnalysis && manualMarkers) {
+        // First calculate angle analysis (including rotation data)
         const referenceAngles = angleAnalysisService.analyzeAngles(referenceAnalysis);
         store.setReferenceAngles(referenceAngles);
+
+        // Then calculate metrics using the angle data
+        try {
+          const referenceMetrics = jumpMetricsService.computeJumpMetrics(referenceAnalysis, manualMarkers, 'reference', referenceAngles);
+          store.setReferenceMetrics(referenceMetrics);
+        } catch {
+          // Failed to compute reference metrics - create empty metrics
+          store.setReferenceMetrics({
+            airTime: null,
+            takeoffFrame: null,
+            landingFrame: null,
+            rotations: null,
+            maxHeight: null
+          });
+        }
       }
-      
-      if (userAnalysis) {
-        const userMetrics = jumpMetricsService.computeJumpMetrics(userAnalysis);
-        store.setUserMetrics(userMetrics);
-        
+
+      if (userAnalysis && manualMarkers) {
+        // First calculate angle analysis (including rotation data)
         const userAngles = angleAnalysisService.analyzeAngles(userAnalysis);
         store.setUserAngles(userAngles);
+
+        // Then calculate metrics using the angle data
+        try {
+          const userMetrics = jumpMetricsService.computeJumpMetrics(userAnalysis, manualMarkers, 'user', userAngles);
+          store.setUserMetrics(userMetrics);
+        } catch {
+          // Failed to compute user metrics - create empty metrics
+          store.setUserMetrics({
+            airTime: null,
+            takeoffFrame: null,
+            landingFrame: null,
+            rotations: null,
+            maxHeight: null
+          });
+        }
       }
       
       // Final progress update
       store.setAnalysisProgress(100);
       
     } catch (error) {
-      console.error('❌ Batch analysis failed:', error);
+      // Batch analysis failed
       store.setAnalysisError(`Analysis failed: ${error}`);
       throw error;
     } finally {
@@ -231,14 +280,11 @@ export class VideoAnalysisService {
   /**
    * Get optimal frame rate for analysis based on video characteristics
    */
-  getOptimalFrameRate(videoElement: HTMLVideoElement): number {
-    const duration = videoElement.duration;
-    
-    // For jump analysis, 30fps is usually sufficient and more performant
-    // Higher frame rates can be used for shorter videos or higher precision needs
-    if (duration < 2) return 30; // Short clips
-    if (duration < 10) return 30; // Medium clips  
-    return 30; // Longer clips - consistent 30fps
+  getOptimalFrameRate(_videoElement: HTMLVideoElement): number {
+    // For rotation analysis precision, we want the highest possible frame rate
+    // Most figure skating videos are shot at 30fps or 60fps
+    // Use 60fps for maximum precision in rotation detection
+    return 60;
   }
 
   get isRunning(): boolean {

@@ -1,0 +1,79 @@
+{
+  "videos": [
+    {
+      "id": "axel",
+      "filename": "axel.mp4",
+      "title": "Single Axel",
+      "description": "Classic single axel with clean takeoff and landing",
+      "jumpType": "axel",
+      "rotations": 1.5,
+      "duration": null,
+      "markers": {
+        "takeoff": {
+          "frame": 65,
+          "timestamp": null
+        },
+        "landing": {
+          "frame": 80,
+          "timestamp": null
+        }
+      },
+      "analysis": {
+        "airTime": null,
+        "jumpHeight": null,
+        "rotationSpeed": null,
+        "landingStability": null
+      }
+    },
+    {
+      "id": "towards_double_axel", 
+      "filename": "towards_double_axel.mp4",
+      "title": "Double Axel (2+ rotations)",
+      "description": "Advanced jump with more than 2 rotations, approaching 2.5",
+      "jumpType": "axel",
+      "rotations": 2.5,
+      "duration": null,
+      "markers": {
+        "takeoff": {
+          "frame": 64,
+          "timestamp": null
+        },
+        "landing": {
+          "frame": 78,
+          "timestamp": null
+        }
+      },
+      "analysis": {
+        "airTime": null,
+        "jumpHeight": null,
+        "rotationSpeed": null,
+        "landingStability": null
+      }
+    },
+    {
+      "id": "quad_axel",
+      "filename": "quad_axel.mov",
+      "title": "Quad Axel",
+      "description": "Elite-level quadruple axel with 4.5 rotations",
+      "jumpType": "axel", 
+      "rotations": 4.5,
+      "duration": null,
+      "markers": {
+        "takeoff": {
+          "frame": 66,
+          "timestamp": null
+        },
+        "landing": {
+          "frame": 90,
+          "timestamp": null
+        }
+      },
+      "analysis": {
+        "airTime": null,
+        "jumpHeight": null,
+        "rotationSpeed": null,
+        "landingStability": null
+      }
+    }
+  ]
+}

@@ -72,7 +72,7 @@ export function useDragAndDrop(
       });
 
       if (!isAccepted) {
-        console.warn('File type not accepted:', file.type);
+        // File type not accepted
         return;
       }
     }

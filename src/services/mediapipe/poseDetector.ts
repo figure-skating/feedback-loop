@@ -39,9 +39,9 @@ class PoseDetectorService {
         },
         runningMode: 'VIDEO',
         numPoses: 1,
-        minPoseDetectionConfidence: 0.3,
-        minPosePresenceConfidence: 0.3,
-        minTrackingConfidence: 0.3,
+        minPoseDetectionConfidence: 0.5,  // Match extraction tool settings
+        minPosePresenceConfidence: 0.5,   // Match extraction tool settings
+        minTrackingConfidence: 0.5,       // Match extraction tool settings
         outputSegmentationMasks: false
       });
       
@@ -54,7 +54,7 @@ class PoseDetectorService {
 
       this.isInitialized = true;
     } catch (error) {
-      console.error('❌ Failed to initialize MediaPipe Pose Landmarker:', error);
+      // Failed to initialize MediaPipe Pose Landmarker
       this.isInitialized = false;
       throw error;
     } finally {
@@ -70,8 +70,8 @@ class PoseDetectorService {
     try {
       // Use performance.now() for monotonically increasing timestamps
       const timestamp = performance.now();
-      
-      // Skip if video hasn't progressed (to avoid processing same frame)
+
+      // Skip duplicate frames (natural playback won't have duplicates)
       const currentVideoTime = videoElement.currentTime;
       if (currentVideoTime === this.lastVideoTime) {
         return null;
@@ -89,7 +89,7 @@ class PoseDetectorService {
       
       return null;
     } catch (error) {
-      console.error('❌ Pose detection error:', error);
+      // Pose detection error
       return null;
     }
   }

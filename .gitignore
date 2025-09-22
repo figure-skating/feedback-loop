@@ -150,8 +150,12 @@ models/
 *.m4v
 
 # Sample videos directory (except .gitkeep)
+# Sample videos directory - allow specific file types only
 public/sample-videos/*
 !public/sample-videos/.gitkeep
+!public/sample-videos/*.mp4
+!public/sample-videos/*.mov
+!public/sample-videos/*.json
 
 # Images
 # Do not ignore images globally; needed assets in public/ must be committed for the app to work in production.
@@ -244,3 +248,4 @@ temp-frames/
 # Analysis cache files
 analysis-cache/
 pose-cache/
+

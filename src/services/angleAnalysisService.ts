@@ -14,6 +14,8 @@ export interface AngleAnalysis {
   headHipAlignment: AngleData[];
   weightBearingHipAngle: AngleData[];
   shoulderAngleToIce: AngleData[];
+  shoulderRotation: AngleData[]; // New: shoulder rotation for jump analysis
+  shoulderCumulativeRotation: AngleData[]; // New: cumulative rotation progress
 }
 
 class AngleAnalysisService {
@@ -45,6 +47,8 @@ class AngleAnalysisService {
       headHipAlignment: [],
       weightBearingHipAngle: [],
       shoulderAngleToIce: [],
+      shoulderRotation: [],
+      shoulderCumulativeRotation: [],
     };
 
     for (const frame of frames) {
@@ -62,6 +66,7 @@ class AngleAnalysisService {
         const weightBearingAngle =
           this.calculateWeightBearingHipAngle(landmarks);
         const shoulderAngle = this.calculateShoulderAngleToIce(landmarks);
+        const shoulderRotationAngle = this.calculateShoulderRotation(landmarks);
 
         // Only add data if we have valid calculations
         if (leftKneeAngle !== null) {
@@ -111,11 +116,16 @@ class AngleAnalysisService {
             angle: shoulderAngle,
           });
         }
+
+        if (shoulderRotationAngle !== null) {
+          angleAnalysis.shoulderRotation.push({
+            timestamp: frame.timestamp,
+            frameIndex,
+            angle: shoulderRotationAngle,
+          });
+        }
       } catch (error) {
-        console.warn(
-          `⚠️ Error calculating angles for frame ${frameIndex}:`,
-          error
-        );
+        // Error calculating angles for frame
       }
     }
 
@@ -143,6 +153,15 @@ class AngleAnalysisService {
     angleAnalysis.shoulderAngleToIce = this.fillAngleDataGaps(
       angleAnalysis.shoulderAngleToIce,
       frames
+    );
+    angleAnalysis.shoulderRotation = this.fillAngleDataGaps(
+      angleAnalysis.shoulderRotation,
+      frames
+    );
+
+    // Calculate cumulative rotation from shoulder rotation data
+    angleAnalysis.shoulderCumulativeRotation = this.calculateCumulativeRotation(
+      angleAnalysis.shoulderRotation
     );
 
     // Angle analysis complete
@@ -351,6 +370,33 @@ class AngleAnalysisService {
   }
 
   /**
+   * Calculate shoulder rotation angle (transverse plane)
+   * Used for jump rotation analysis - shows rotation around vertical axis
+   * Returns angle in degrees (0-360°) representing shoulder orientation
+   */
+  private calculateShoulderRotation(landmarks: PoseLandmark[]): number | null {
+    const leftShoulder = landmarks[this.LEFT_SHOULDER];
+    const rightShoulder = landmarks[this.RIGHT_SHOULDER];
+
+    if (!leftShoulder || !rightShoulder) return null;
+
+    // Calculate rotation in world space (X-Z plane for top-down view)
+    const dx = rightShoulder.x - leftShoulder.x;
+    const dz = (rightShoulder.z || 0) - (leftShoulder.z || 0);
+
+    // Use atan2 to get angle in -180° to +180° range
+    const angleRadians = Math.atan2(dz, dx);
+    let angleDegrees = angleRadians * (180 / Math.PI);
+
+    // Convert to 0-360° range for easier visualization
+    if (angleDegrees < 0) {
+      angleDegrees += 360;
+    }
+
+    return angleDegrees;
+  }
+
+  /**
    * Calculate angle between two 3D vectors in degrees
    */
   private calculateAngleBetweenVectors(
@@ -492,6 +538,89 @@ class AngleAnalysisService {
     }
 
     return smoothed;
+  }
+
+  // Threshold for distinguishing noise from actual rotation
+  // Movements smaller than this are not forced to match primary direction
+  private readonly ROTATION_NOISE_THRESHOLD = 20; // degrees
+
+  /**
+   * Calculate cumulative rotation from shoulder rotation angle data
+   * Uses two-pass algorithm:
+   * Pass 1: Determine overall rotation direction (CW or CCW)
+   * Pass 2: Force all angle differences to match the primary direction
+   * Result: CCW jumps show positive cumulative, CW jumps show negative cumulative
+   */
+  private calculateCumulativeRotation(shoulderRotationData: AngleData[]): AngleData[] {
+    if (shoulderRotationData.length < 2) return [];
+
+    // Pass 1: Determine overall rotation direction
+    let netRotation = 0;
+    for (let i = 1; i < shoulderRotationData.length; i++) {
+      const currentAngle = shoulderRotationData[i].angle;
+      const previousAngle = shoulderRotationData[i - 1].angle;
+
+      let angleDiff = currentAngle - previousAngle;
+
+      // Apply standard wraparound for direction detection
+      if (angleDiff > 180) angleDiff -= 360;
+      if (angleDiff < -180) angleDiff += 360;
+
+      netRotation += angleDiff;
+    }
+
+    // Determine primary direction based on net rotation
+    const isCCW = netRotation > 0;  // Positive = counterclockwise
+    const isCW = netRotation < 0;   // Negative = clockwise
+
+    // Pass 2: Calculate cumulative rotation with forced direction consistency
+    const cumulativeData: AngleData[] = [];
+    let cumulativeRotation = 0;
+
+    // First frame starts at 0° cumulative rotation
+    cumulativeData.push({
+      timestamp: shoulderRotationData[0].timestamp,
+      frameIndex: shoulderRotationData[0].frameIndex,
+      angle: 0,
+    });
+
+    for (let i = 1; i < shoulderRotationData.length; i++) {
+      const currentAngle = shoulderRotationData[i].angle;
+      const previousAngle = shoulderRotationData[i - 1].angle;
+
+      let angleDiff = currentAngle - previousAngle;
+
+      // NO standard wraparound here - we want the raw difference
+      // Then force it to match the expected direction
+
+      if (isCCW) {
+        // For CCW rotation, we want all positive angle differences (0 to 360)
+        // Only force direction for movements larger than noise threshold
+        if (angleDiff < -this.ROTATION_NOISE_THRESHOLD) {
+          angleDiff = angleDiff + 360;  // Convert negative to positive continuation
+        }
+        // Small negative movements (noise) are left as-is
+      } else if (isCW) {
+        // For CW rotation, we want all negative angle differences (0 to -360)
+        // Only force direction for movements larger than noise threshold
+        if (angleDiff > this.ROTATION_NOISE_THRESHOLD) {
+          angleDiff = angleDiff - 360;  // Convert positive to negative continuation
+        }
+        // Small positive movements (noise) are left as-is
+      }
+
+      // Accumulate the rotation (positive for CCW, negative for CW)
+      cumulativeRotation += angleDiff;
+
+      // Store cumulative rotation progress
+      cumulativeData.push({
+        timestamp: shoulderRotationData[i].timestamp,
+        frameIndex: shoulderRotationData[i].frameIndex,
+        angle: cumulativeRotation,  // Positive for CCW, negative for CW
+      });
+    }
+
+    return cumulativeData;
   }
 }
 

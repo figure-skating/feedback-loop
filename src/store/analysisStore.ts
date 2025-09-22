@@ -173,10 +173,10 @@ export const useAnalysisStore = create<AnalysisStore>()(
       // Handle persistence
       if (video?.file && clearAnalysis) {
         // Save to IndexedDB when uploading new video
-        videoStorageService.saveVideo(video.file, 'reference').catch(console.error);
+        videoStorageService.saveVideo(video.file, 'reference').catch(() => {});
       } else if (video === null) {
         // Delete from IndexedDB when video is removed
-        videoStorageService.deleteVideo('reference').catch(console.error);
+        videoStorageService.deleteVideo('reference').catch(() => {});
       }
       
       // Option A: Clear ALL metrics when ANY video is replaced
@@ -245,10 +245,10 @@ export const useAnalysisStore = create<AnalysisStore>()(
       // Handle persistence
       if (video?.file && clearAnalysis) {
         // Save to IndexedDB when uploading new video
-        videoStorageService.saveVideo(video.file, 'user').catch(console.error);
+        videoStorageService.saveVideo(video.file, 'user').catch(() => {});
       } else if (video === null) {
         // Delete from IndexedDB when video is removed
-        videoStorageService.deleteVideo('user').catch(console.error);
+        videoStorageService.deleteVideo('user').catch(() => {});
       }
       
       // Option A: Clear ALL metrics when ANY video is replaced
@@ -529,7 +529,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
       try {
         localStorage.setItem('manual-markers', JSON.stringify(markers));
       } catch (error) {
-        console.warn('Failed to save manual markers to localStorage:', error);
+        // Failed to save manual markers
       }
     },
     
@@ -544,7 +544,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
       try {
         localStorage.removeItem('manual-markers');
       } catch (error) {
-        console.warn('Failed to remove manual markers from localStorage:', error);
+        // Failed to remove manual markers
       }
     },
     
@@ -683,7 +683,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
         localStorage.removeItem('manual-markers');
         stateStorageService.clearState();
       } catch (error) {
-        console.warn('Failed to clear persisted data:', error);
+        // Failed to clear persisted data
       }
     },
 
@@ -699,7 +699,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
           actions.setManualMarkers(markers);
         }
       } catch (error) {
-        console.warn('Failed to restore manual markers from localStorage:', error);
+        // Failed to restore manual markers
       }
     },
 
@@ -747,7 +747,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
 
         // Videos restored from IndexedDB if available
       } catch (error) {
-        console.error('Failed to restore videos from storage:', error);
+        // Failed to restore videos from storage
       }
     },
 
@@ -755,7 +755,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
       try {
         await videoStorageService.clearAllVideos();
       } catch (error) {
-        console.error('Failed to clear video storage:', error);
+        // Failed to clear video storage
       }
     },
 
@@ -776,7 +776,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
           virtualTimelineDuration: state.virtualTimelineDuration,
         });
       } catch (error) {
-        console.error('Failed to save state:', error);
+        // Failed to save state
       }
     },
 
@@ -814,7 +814,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
         }
         return false; // No valid state found
       } catch (error) {
-        console.error('Failed to restore state:', error);
+        // Failed to restore state
         return false;
       }
     },
@@ -823,7 +823,7 @@ export const useAnalysisStore = create<AnalysisStore>()(
       try {
         await stateStorageService.clearState();
       } catch (error) {
-        console.error('Failed to clear stored state:', error);
+        // Failed to clear stored state
       }
     },
   }))

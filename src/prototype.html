@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Loop</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .iphone {
+            width: 390px;
+            height: 844px;
+            background: #000;
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            height: 54px;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid #333;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .logo-icon {
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #5DADE2, #3498DB);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .videos {
+            height: 340px;
+            padding: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .video-box {
+            flex: 1;
+            background: #1a1a1a;
+            border-radius: 16px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 2px solid #333;
+            transition: all 0.3s;
+        }
+
+        .video-box:hover {
+            border-color: #5DADE2;
+            transform: scale(1.02);
+        }
+
+        .video-label {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: linear-gradient(135deg, #5DADE2, #3498DB);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .video-icon {
+            width: 60px;
+            height: 60px;
+            border: 3px solid #5DADE2;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .upload-text {
+            margin-top: 12px;
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .timeline {
+            height: 80px;
+            padding: 0 16px;
+        }
+
+        .timeline-box {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 12px;
+            height: 100%;
+        }
+
+        .time-labels {
+            display: flex;
+            justify-content: space-between;
+            color: #666;
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #5DADE2, #3498DB);
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .progress-thumb {
+            position: absolute;
+            right: -8px;
+            top: -4px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .tabs {
+            display: none;
+            padding: 0 16px 12px;
+            gap: 8px;
+        }
+
+        .tabs.active {
+            display: flex;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 10px;
+            color: #666;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #5DADE2, #3498DB);
+            color: white;
+            border: none;
+        }
+
+        .content {
+            flex: 1;
+            padding: 0 16px;
+        }
+
+        .metrics {
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 16px;
+            height: 100%;
+        }
+
+        .metrics-title {
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .metric {
+            background: #222;
+            border-radius: 12px;
+            padding: 16px 8px;
+            text-align: center;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            color: white;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .metric-unit {
+            color: #666;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .metric-diff {
+            margin-top: 4px;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
+        .diff-positive {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10B981;
+        }
+
+        .diff-negative {
+            background: rgba(239, 68, 68, 0.2);
+            color: #EF4444;
+        }
+
+        .action-area {
+            padding: 16px;
+        }
+
+        .action-btn {
+            width: 100%;
+            height: 56px;
+            background: linear-gradient(135deg, #5DADE2, #3498DB);
+            border: none;
+            border-radius: 16px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(93, 173, 226, 0.4);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Upload Menu */
+        .upload-menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .upload-menu.show {
+            display: flex;
+        }
+
+        .menu-content {
+            background: #1a1a1a;
+            border-radius: 20px;
+            padding: 24px;
+            width: 90%;
+            max-width: 340px;
+        }
+
+        .menu-title {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .menu-option {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .menu-option:hover {
+            background: #2a2a2a;
+            border-color: #5DADE2;
+        }
+
+        .option-title {
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .option-desc {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .recommended {
+            display: inline-block;
+            background: #10B981;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            margin-left: 8px;
+        }
+
+        .close-menu {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 32px;
+            height: 32px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="iphone">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">⛸</div>
+                <span>FEEDBACK <span style="color: #5DADE2;">LOOP</span></span>
+            </div>
+        </div>
+
+        <!-- Videos -->
+        <div class="videos">
+            <div class="video-box" onclick="showUploadMenu('reference')">
+                <div class="video-label">Reference</div>
+                <div class="video-icon">📹</div>
+                <div class="upload-text">Tap to Upload</div>
+            </div>
+            <div class="video-box" onclick="showUploadMenu('user')">
+                <div class="video-label">Your Jump</div>
+                <div class="video-icon">📹</div>
+                <div class="upload-text">Tap to Upload</div>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline">
+            <div class="timeline-box">
+                <div class="time-labels">
+                    <span>0:00</span>
+                    <span>0:00</span>
+                    <span>0:00</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill">
+                        <div class="progress-thumb"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs" id="tabs">
+            <div class="tab active" onclick="switchTab('overview', this)">Overview</div>
+            <div class="tab" onclick="switchTab('details', this)">Details</div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="metrics">
+                <div class="metrics-title">📊 Jump Analysis</div>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <div class="metric-label">Air Time</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Rotations</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Height</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Button -->
+        <div class="action-area">
+            <button class="action-btn" disabled>Upload Videos First</button>
+        </div>
+
+        <!-- Upload Menu -->
+        <div class="upload-menu" id="uploadMenu">
+            <button class="close-menu" onclick="closeMenu()">×</button>
+            <div class="menu-content">
+                <div class="menu-title">Select Video Source</div>
+                
+                <div class="menu-option" onclick="showSampleVideos()">
+                    <div class="option-title">
+                        Try Sample Video
+                        <span class="recommended">RECOMMENDED</span>
+                    </div>
+                    <div class="option-desc">Pre-analyzed jump with markers set</div>
+                </div>
+                
+                <div class="menu-option" onclick="chooseVideo()">
+                    <div class="option-title">Choose from Library</div>
+                    <div class="option-desc">Select from your device</div>
+                </div>
+                
+                <div class="menu-option" onclick="recordVideo()">
+                    <div class="option-title">Record New Video</div>
+                    <div class="option-desc">Capture a jump now</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Video Selection Menu -->
+        <div class="upload-menu" id="sampleMenu">
+            <button class="close-menu" onclick="closeSampleMenu()">×</button>
+            <div class="menu-content">
+                <div class="menu-title">Choose Sample Video</div>
+                <div id="sampleVideoList">
+                    <!-- Sample videos will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentVideoType = null;
+        let sampleVideoData = null;
+
+        function showUploadMenu(type) {
+            currentVideoType = type;
+            document.getElementById('uploadMenu').classList.add('show');
+        }
+
+        function closeMenu() {
+            document.getElementById('uploadMenu').classList.remove('show');
+        }
+
+        function closeSampleMenu() {
+            document.getElementById('sampleMenu').classList.remove('show');
+        }
+
+        async function showSampleVideos() {
+            closeMenu();
+            
+            // Load sample video data if not already loaded
+            if (!sampleVideoData) {
+                try {
+                    const response = await fetch('/sample-videos/sample-data.json');
+                    sampleVideoData = await response.json();
+                } catch (error) {
+                    console.error('Error loading sample data:', error);
+                    return;
+                }
+            }
+            
+            // Generate sample video options
+            const sampleList = document.getElementById('sampleVideoList');
+            sampleList.innerHTML = '';
+            
+            sampleVideoData.videos.forEach(video => {
+                const option = document.createElement('div');
+                option.className = 'menu-option';
+                option.onclick = () => loadSampleVideo(video);
+                
+                option.innerHTML = `
+                    <div class="option-title">${video.title}</div>
+                    <div class="option-desc">${video.description} (${video.rotations} rotations)</div>
+                `;
+                
+                sampleList.appendChild(option);
+            });
+            
+            document.getElementById('sampleMenu').classList.add('show');
+        }
+
+        function loadSampleVideo(videoData) {
+            closeSampleMenu();
+            
+            // Load the selected sample video with pre-set markers
+            updateVideoWithData(currentVideoType, videoData);
+            
+            // Store the analysis data for later use
+            if (currentVideoType === 'reference') {
+                window.referenceVideoData = videoData;
+            } else {
+                window.userVideoData = videoData;
+            }
+        }
+
+        function chooseVideo() {
+            // Open file picker
+            closeMenu();
+            updateVideo(currentVideoType);
+        }
+
+        function recordVideo() {
+            // Open camera
+            closeMenu();
+            updateVideo(currentVideoType);
+        }
+
+        function updateVideo(type) {
+            const videos = document.querySelectorAll('.video-box');
+            const video = type === 'reference' ? videos[0] : videos[1];
+            video.querySelector('.video-icon').textContent = '▶️';
+            video.querySelector('.upload-text').textContent = 'Video Loaded';
+            
+            // Check if both videos loaded
+            checkReady();
+        }
+
+        function checkReady() {
+            const videos = document.querySelectorAll('.video-box');
+            let allLoaded = true;
+            videos.forEach(v => {
+                if (v.querySelector('.video-icon').textContent === '📹') {
+                    allLoaded = false;
+                }
+            });
+            
+            if (allLoaded) {
+                document.querySelector('.action-btn').disabled = false;
+                document.querySelector('.action-btn').textContent = 'Analyze Jump';
+            }
+        }
+
+        function switchTab(tab, element) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            element.classList.add('active');
+        }
+    </script>
+</body>
+</html>

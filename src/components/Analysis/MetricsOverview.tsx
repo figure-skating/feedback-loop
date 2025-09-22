@@ -2,10 +2,10 @@ import { useAnalysisStore } from '../../store/analysisStore';
 
 export default function MetricsOverview() {
   const { referenceMetrics, userMetrics, manualMarkers, referenceVideo, userVideo } = useAnalysisStore();
-
+  
   // Calculate comparison values
-  const airTimeDiff = (userMetrics?.airTime && referenceMetrics?.airTime) 
-    ? userMetrics.airTime - referenceMetrics.airTime 
+  const airTimeDiff = (userMetrics?.airTime && referenceMetrics?.airTime)
+    ? userMetrics.airTime - referenceMetrics.airTime
     : null;
   
   const rotationsDiff = (userMetrics && userMetrics.rotations !== null && referenceMetrics && referenceMetrics.rotations !== null) 

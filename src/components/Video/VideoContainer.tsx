@@ -1,8 +1,11 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useVideoUpload, VideoFile } from '../../hooks/useVideoUpload';
 import { useDragAndDrop } from '../../hooks/useDragAndDrop';
 import { VideoPlayer } from './VideoPlayer';
 import { useAnalysisStore } from '../../store/analysisStore';
+import VideoUploadMenu from './VideoUploadMenu';
+import SampleVideoSelector from './SampleVideoSelector';
+import { frameToTimestamp } from '../../utils/frameToTimestamp';
 
 interface VideoContainerProps {
   label: string;
@@ -10,6 +13,7 @@ interface VideoContainerProps {
   onVideoUploaded?: (video: VideoFile) => void;
   onVideoRemoved?: () => void;
   showCloseButton?: boolean;
+  onSampleVideoLoading?: (loading: boolean) => void;
 }
 
 export default function VideoContainer({ 
@@ -17,11 +21,14 @@ export default function VideoContainer({
   type, 
   onVideoUploaded,
   onVideoRemoved,
-  showCloseButton = true
+  showCloseButton = true,
+  onSampleVideoLoading
 }: VideoContainerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { video, isUploading, progress, error, uploadVideo, clearVideo, clearError, restoreVideo } = useVideoUpload();
-  const { referenceVideo, userVideo, setReferenceVideo, setUserVideo } = useAnalysisStore();
+  const { referenceVideo, userVideo, setReferenceVideo, setUserVideo, setManualMarkers } = useAnalysisStore();
+  const [showUploadMenu, setShowUploadMenu] = useState(false);
+  const [showSampleSelector, setShowSampleSelector] = useState(false);
   
   // Restore video state from global store when component mounts
   useEffect(() => {
@@ -62,8 +69,55 @@ export default function VideoContainer({
 
   const handleClick = () => {
     if (!video && !isUploading) {
-      fileInputRef.current?.click();
+      setShowUploadMenu(true);
     }
+  };
+
+  const handleSampleSelect = async (sampleVideo: VideoFile, sampleData: any) => {
+    // Set loading flag to prevent wizard
+    onSampleVideoLoading?.(true);
+    
+    // Restore the sample video
+    await restoreVideo(sampleVideo);
+    
+    // Store the video in the global store with sample metadata
+    const videoData = {
+      name: sampleVideo.name,
+      url: sampleVideo.url,
+      duration: sampleVideo.duration || 0,
+      isSample: true,
+      sampleData: sampleData
+    };
+    
+    if (type === 'reference') {
+      setReferenceVideo(videoData, false);
+    } else {
+      setUserVideo(videoData, false);
+    }
+    
+    // Store sample data for later use when video loads
+    window[`${type}SampleData`] = sampleData;
+    
+    // Set manual markers from sample data
+    const currentMarkers = useAnalysisStore.getState().manualMarkers || {
+      reference: { takeoffFrame: null, takeoffTime: null, landingFrame: null, landingTime: null },
+      user: { takeoffFrame: null, takeoffTime: null, landingFrame: null, landingTime: null }
+    };
+    
+    const updatedMarkers = {
+      ...currentMarkers,
+      [type]: {
+        takeoffFrame: sampleData.markers.takeoff.frame,
+        takeoffTime: sampleData.markers.takeoff.timestamp || null,
+        landingFrame: sampleData.markers.landing.frame,
+        landingTime: sampleData.markers.landing.timestamp || null
+      }
+    };
+    
+    setManualMarkers(updatedMarkers);
+    // Set manual markers
+    
+    onVideoUploaded?.(sampleVideo);
   };
 
   const handleVideoClick = (e: React.MouseEvent) => {
@@ -164,6 +218,39 @@ export default function VideoContainer({
               } else {
                 setUserVideo(videoData, false); // Don't clear analysis when restoring
               }
+              
+              // If this is a sample video, set the pre-analyzed markers with timestamps
+              const sampleData = window[`${type}SampleData`];
+              if (sampleData && sampleData.markers) {
+                const fps = 30; // Sample videos are 30fps
+                const takeoffTime = frameToTimestamp(sampleData.markers.takeoff.frame, fps);
+                const landingTime = frameToTimestamp(sampleData.markers.landing.frame, fps);
+                
+                // Get existing markers or create new ones
+                const currentMarkers = useAnalysisStore.getState().manualMarkers || {
+                  reference: { takeoffFrame: null, takeoffTime: null, landingFrame: null, landingTime: null },
+                  user: { takeoffFrame: null, takeoffTime: null, landingFrame: null, landingTime: null }
+                };
+                
+                // Update markers for the current video type
+                const updatedMarkers = {
+                  ...currentMarkers,
+                  [type]: {
+                    takeoffFrame: sampleData.markers.takeoff.frame,
+                    takeoffTime: takeoffTime,
+                    landingFrame: sampleData.markers.landing.frame,
+                    landingTime: landingTime
+                  }
+                };
+                
+                setManualMarkers(updatedMarkers);
+                
+                // Clear the sample data from window
+                delete window[`${type}SampleData`];
+                
+                // Clear loading flag after markers are set
+                onSampleVideoLoading?.(false);
+              }
             }}
             />
           </div>
@@ -230,6 +317,27 @@ export default function VideoContainer({
       )}
       
       </div>
+
+      {/* Upload Menu */}
+      <VideoUploadMenu
+        isOpen={showUploadMenu}
+        onClose={() => setShowUploadMenu(false)}
+        onSelectSample={() => {
+          setShowUploadMenu(false);
+          setShowSampleSelector(true);
+        }}
+        onSelectFile={() => {
+          setShowUploadMenu(false);
+          fileInputRef.current?.click();
+        }}
+      />
+
+      {/* Sample Video Selector */}
+      <SampleVideoSelector
+        isOpen={showSampleSelector}
+        onClose={() => setShowSampleSelector(false)}
+        onVideoSelect={handleSampleSelect}
+      />
     </div>
   );
 }

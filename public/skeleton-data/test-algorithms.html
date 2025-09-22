@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Rotation Algorithms</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        h1 {
+            color: #5dade2;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            background: #5dade2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #3498db;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .results {
+            margin: 20px 0;
+        }
+        .result-section {
+            background: #222;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #5dade2;
+        }
+        .algorithm-result {
+            background: #333;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .accuracy-high { border-left-color: #27ae60; }
+        .accuracy-medium { border-left-color: #f39c12; }
+        .accuracy-low { border-left-color: #e74c3c; }
+        
+        pre {
+            background: #111;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .stats-table th, .stats-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        .stats-table th {
+            background: #333;
+        }
+        .upload-area {
+            border: 2px dashed #555;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #5dade2;
+        }
+        .file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔬 Rotation Algorithm Tester</h1>
+    
+    <div class="controls">
+        <button id="testAxel">Test Axel (1.5 rotations)</button>
+        <button id="testDouble">Test Double Axel+ (2.5 rotations)</button>
+        <button id="testQuad">Test Quad Axel (4.5 rotations)</button>
+        <button id="testAll">Test All Videos</button>
+        <button id="clearResults">Clear Results</button>
+    </div>
+
+    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <p>📁 Click to upload custom skeleton data JSON file</p>
+        <p style="font-size: 12px; color: #666;">Or use the test buttons above for pre-processed samples</p>
+        <input type="file" id="fileInput" class="file-input" accept=".json">
+    </div>
+
+    <div class="results" id="results"></div>
+
+    <script src="rotation-algorithms.js"></script>
+    <script>
+        let testResults = [];
+
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file && file.type === 'application/json') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        displaySingleTest(data);
+                    } catch (error) {
+                        alert('Error parsing JSON file: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Test individual videos
+        async function testVideo(filename, videoName) {
+            try {
+                const response = await fetch(`/skeleton-data/${filename}`);
+                if (!response.ok) {
+                    throw new Error(`File not found: ${filename}`);
+                }
+                const data = await response.json();
+                displaySingleTest(data);
+            } catch (error) {
+                const resultsDiv = document.getElementById('results');
+                resultsDiv.innerHTML += `
+                    <div class="result-section">
+                        <h3>❌ Error loading ${videoName}</h3>
+                        <p style="color: #e74c3c;">${error.message}</p>
+                        <p>Make sure you've extracted the skeleton data first using the extraction tool.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Display results for a single test
+        function displaySingleTest(skeletonData) {
+            const results = testAllAlgorithms(skeletonData);
+            const { videoInfo } = skeletonData;
+            
+            let html = `
+                <div class="result-section">
+                    <h3>📊 ${videoInfo.name}</h3>
+                    <p><strong>Expected:</strong> ${videoInfo.rotations} rotations</p>
+                    <p><strong>Jump Frames:</strong> ${videoInfo.takeoffFrame} → ${videoInfo.landingFrame}</p>
+                    <p><strong>Total Frames:</strong> ${skeletonData.frames.length}</p>
+            `;
+
+            results.forEach(result => {
+                const accuracyClass = result.accuracy >= 80 ? 'accuracy-high' : 
+                                   result.accuracy >= 60 ? 'accuracy-medium' : 'accuracy-low';
+                
+                html += `
+                    <div class="algorithm-result ${accuracyClass}">
+                        <h4>${result.algorithm}</h4>
+                        <p><strong>Detected:</strong> ${result.detected.toFixed(3)} rotations</p>
+                        <p><strong>Error:</strong> ${result.error.toFixed(3)} rotations</p>
+                        <p><strong>Accuracy:</strong> ${result.accuracy.toFixed(1)}%</p>
+                        <p><strong>Confidence:</strong> ${(result.confidence * 100).toFixed(1)}%</p>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            document.getElementById('results').innerHTML += html;
+            
+            // Store results for summary
+            testResults.push(...results);
+            updateSummary();
+        }
+
+        // Update summary statistics
+        function updateSummary() {
+            if (testResults.length === 0) return;
+
+            const algorithmStats = {};
+            
+            testResults.forEach(result => {
+                if (!algorithmStats[result.algorithm]) {
+                    algorithmStats[result.algorithm] = {
+                        totalError: 0,
+                        totalAccuracy: 0,
+                        count: 0,
+                        results: []
+                    };
+                }
+                
+                algorithmStats[result.algorithm].totalError += result.error;
+                algorithmStats[result.algorithm].totalAccuracy += result.accuracy;
+                algorithmStats[result.algorithm].count++;
+                algorithmStats[result.algorithm].results.push(result);
+            });
+
+            let summaryHtml = `
+                <div class="result-section">
+                    <h3>📈 Summary Statistics</h3>
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>Algorithm</th>
+                                <th>Avg Error</th>
+                                <th>Avg Accuracy</th>
+                                <th>Tests</th>
+                                <th>Best Result</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            Object.entries(algorithmStats).forEach(([name, stats]) => {
+                const avgError = stats.totalError / stats.count;
+                const avgAccuracy = stats.totalAccuracy / stats.count;
+                const bestResult = stats.results.reduce((best, current) => 
+                    current.accuracy > best.accuracy ? current : best
+                );
+                
+                summaryHtml += `
+                    <tr>
+                        <td><strong>${name}</strong></td>
+                        <td>${avgError.toFixed(3)}</td>
+                        <td>${avgAccuracy.toFixed(1)}%</td>
+                        <td>${stats.count}</td>
+                        <td>${bestResult.accuracy.toFixed(1)}%</td>
+                    </tr>
+                `;
+            });
+
+            summaryHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            // Remove existing summary and add new one
+            const existingSummary = document.querySelector('.result-section:last-child');
+            if (existingSummary && existingSummary.innerHTML.includes('Summary Statistics')) {
+                existingSummary.remove();
+            }
+            
+            document.getElementById('results').innerHTML += summaryHtml;
+        }
+
+        // Test all videos
+        async function testAllVideos() {
+            const files = [
+                { filename: 'skeleton_data_axel.json', name: 'Axel' },
+                { filename: 'skeleton_data_double.json', name: 'Double Axel+' },
+                { filename: 'skeleton_data_quad.json', name: 'Quad Axel' }
+            ];
+
+            for (const { filename, name } of files) {
+                await testVideo(filename, name);
+            }
+        }
+
+        // Clear results
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            testResults = [];
+        }
+
+        // Event listeners
+        document.getElementById('testAxel').addEventListener('click', () => 
+            testVideo('skeleton_data_axel.json', 'Axel'));
+        document.getElementById('testDouble').addEventListener('click', () => 
+            testVideo('skeleton_data_double.json', 'Double Axel+'));
+        document.getElementById('testQuad').addEventListener('click', () => 
+            testVideo('skeleton_data_quad.json', 'Quad Axel'));
+        document.getElementById('testAll').addEventListener('click', testAllVideos);
+        document.getElementById('clearResults').addEventListener('click', clearResults);
+
+        // Initial instructions
+        document.getElementById('results').innerHTML = `
+            <div class="result-section">
+                <h3>🚀 Getting Started</h3>
+                <ol>
+                    <li><strong>Extract skeleton data:</strong> Use <code>/extract-skeletons.html</code> to process the sample videos</li>
+                    <li><strong>Download JSON files:</strong> Save them in the <code>/skeleton-data/</code> folder</li>
+                    <li><strong>Test algorithms:</strong> Use the buttons above to test different rotation detection algorithms</li>
+                    <li><strong>Compare results:</strong> See which algorithm works best for each jump type</li>
+                </ol>
+                <p>Expected filenames: <code>skeleton_data_axel.json</code>, <code>skeleton_data_double.json</code>, <code>skeleton_data_quad.json</code></p>
+            </div>
+        `;
+    </script>
+</body>
+</html>

@@ -13,7 +13,6 @@ import { VideoFile } from './hooks/useVideoUpload'
 import { useAnalysisStore, ManualMarkers } from './store/analysisStore'
 import { videoAnalysisService } from './services/videoAnalysisService'
 import { videoExportService } from './services/videoExportService'
-import { manualJumpMetricsService } from './services/manualJumpMetricsService'
 
 function App() {
   const {
@@ -30,8 +29,6 @@ function App() {
     manualMarkers,
     setManualMarkers,
     hasValidMarkers,
-    setReferenceMetrics,
-    setUserMetrics,
     clearManualMarkers,
     restoreVideosFromStorage,
     restoreManualMarkersFromStorage,
@@ -44,10 +41,11 @@ function App() {
   const [showWizard, setShowWizard] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'details'>('overview')
   const [isRestoringState, setIsRestoringState] = useState(true)
+  const [isLoadingSampleVideos, setIsLoadingSampleVideos] = useState(false)
 
   const hasVideos = referenceVideo && userVideo
   const canAnalyze = hasVideos && hasValidMarkers() && !isAnalyzing
-  const canStartWizard = hasVideos && !hasValidMarkers() && !isRestoringState
+  const canStartWizard = hasVideos && !hasValidMarkers() && !isRestoringState && !isLoadingSampleVideos
   const showTabs = hasValidAnalysis() && hasValidMarkers()
 
   // Restore videos and full state from storage on app startup
@@ -73,12 +71,31 @@ function App() {
     initializeApp()
   }, [restoreVideosFromStorage, restoreManualMarkersFromStorage, restoreState])
 
-  // Auto-launch wizard when both videos are uploaded
+  // Auto-launch wizard when both videos are uploaded (but not for sample videos with markers)
   useEffect(() => {
     if (canStartWizard && !showWizard) {
       setShowWizard(true)
     }
   }, [canStartWizard, showWizard])
+  
+  // Auto-analyze when both sample videos are loaded with markers
+  const [hasAutoAnalyzed, setHasAutoAnalyzed] = useState(false);
+  useEffect(() => {
+    if (canAnalyze && !hasValidAnalysis() && !isAnalyzing && !hasAutoAnalyzed) {
+      // Check if both videos have markers (indicating they're sample videos)
+      if (manualMarkers?.reference.takeoffTime !== null && 
+          manualMarkers?.reference.landingTime !== null &&
+          manualMarkers?.user.takeoffTime !== null && 
+          manualMarkers?.user.landingTime !== null) {
+        // Mark as auto-analyzed to prevent loops
+        setHasAutoAnalyzed(true);
+        // Small delay to ensure videos are fully loaded
+        setTimeout(() => {
+          handleStartAnalysis();
+        }, 500);
+      }
+    }
+  }, [canAnalyze, hasValidAnalysis, isAnalyzing, manualMarkers])
 
   const handleReferenceVideoUpload = (video: VideoFile) => {
     setReferenceVideo({
@@ -145,32 +162,10 @@ function App() {
       // Run the full video analysis
       await videoAnalysisService.analyzeBothVideos(referenceVideoEl, userVideoEl, analysisFPS)
       
-      // After analysis is complete, calculate metrics using manual markers
-      const referenceAnalysisData = useAnalysisStore.getState().referenceAnalysis;
-      const userAnalysisData = useAnalysisStore.getState().userAnalysis;
-      
-      if (referenceAnalysisData && userAnalysisData) {
-        // Calculate metrics for both videos
-        const refMetrics = manualJumpMetricsService.computeJumpMetrics(
-          manualMarkers, 'reference', referenceAnalysisData
-        );
-        const userMetricsResult = manualJumpMetricsService.computeJumpMetrics(
-          manualMarkers, 'user', userAnalysisData
-        );
-        
-        // Metrics calculated after analysis
-        
-        // Update store with calculated metrics
-        setReferenceMetrics(refMetrics);
-        setUserMetrics(userMetricsResult);
-        
-        // Save complete state after successful analysis
-        setTimeout(() => {
-          saveState();
-        }, 100); // Small delay to ensure all state updates are complete
-      } else {
-        // Missing analysis data - cannot calculate metrics
-      }
+      // Save complete state after successful analysis
+      setTimeout(() => {
+        saveState();
+      }, 100); // Small delay to ensure all state updates are complete
       
     } catch (error) {
       // Analysis failed - error is handled by the analysis service
@@ -185,7 +180,7 @@ function App() {
     if (!userAnalysis?.isComplete || !userMetrics) return;
 
     if (userMetrics.takeoffFrame === null || userMetrics.landingFrame === null) {
-      console.warn('Cannot share: missing takeoff or landing frame');
+      // Cannot share: missing takeoff or landing frame
       return;
     }
 
@@ -230,7 +225,7 @@ function App() {
       downloadLink.click();
       URL.revokeObjectURL(videoUrl);
     } catch (error) {
-      console.error('Failed to export video:', error);
+      // Failed to export video
     } finally {
       setIsExporting(false);
     }
@@ -286,12 +281,14 @@ function App() {
             type="reference"
             onVideoUploaded={handleReferenceVideoUpload}
             onVideoRemoved={handleVideoRemoved}
+            onSampleVideoLoading={setIsLoadingSampleVideos}
           />
           <VideoContainer
             label="Your Jump"
             type="user"
             onVideoUploaded={handleUserVideoUpload}
             onVideoRemoved={handleVideoRemoved}
+            onSampleVideoLoading={setIsLoadingSampleVideos}
           />
         </div>
 
@@ -323,7 +320,17 @@ function App() {
               {referenceAnalysis && userAnalysis && (
                 <>
                   <AngleChart
-                    title="Left Knee Flexion" 
+                    title="Shoulder Rotation"
+                    selectedPlane="transverse"
+                    className="h-48"
+                  />
+                  <AngleChart
+                    title="Shoulder Cumulative Rotation"
+                    selectedPlane="transverse"
+                    className="h-48"
+                  />
+                  <AngleChart
+                    title="Left Knee Flexion"
                     selectedPlane="sagittal"
                     className="h-48"
                   />

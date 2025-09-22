@@ -52,13 +52,21 @@ export default function AngleChart({ title, selectedPlane, className = '' }: Ang
         referenceAngleData = referenceAngles.headHipAlignment;
         userAngleData = userAngles.headHipAlignment;
       }
-    } else {
+    } else if (selectedPlane === 'frontal') {
       if (title === 'Weight-Bearing Hip Angle') {
         referenceAngleData = referenceAngles.weightBearingHipAngle;
         userAngleData = userAngles.weightBearingHipAngle;
       } else if (title === 'Shoulder Angle to Ice') {
         referenceAngleData = referenceAngles.shoulderAngleToIce;
         userAngleData = userAngles.shoulderAngleToIce;
+      }
+    } else if (selectedPlane === 'transverse') {
+      if (title === 'Shoulder Rotation') {
+        referenceAngleData = referenceAngles.shoulderRotation;
+        userAngleData = userAngles.shoulderRotation;
+      } else if (title === 'Shoulder Cumulative Rotation') {
+        referenceAngleData = referenceAngles.shoulderCumulativeRotation;
+        userAngleData = userAngles.shoulderCumulativeRotation;
       }
     }
 
